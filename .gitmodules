@@ -1,0 +1,3 @@
+[submodule "amlutils"]
+	path = amlutils
+	url = https://github.com/phonosync/amlutils.git
