@@ -2,9 +2,8 @@ import argparse
 import os
 import numpy as np
 import joblib
-
 from sklearn.linear_model import LogisticRegression
-
+from sklearn import metrics
 from azureml.core import Run
 from mnist_util import load_data
 
@@ -14,14 +13,14 @@ parser.add_argument('--regularization', type=float, dest='reg', default=0.01, he
 
 
 def train(data_folder, regularization, output):
-
     # load train and test set into numpy arrays
-    # note we scale the pixel intensity values to 0-1 (by dividing it with 255.0) so the model can converge faster.
+    # note we scale the pixel intensity values to 0-1 (by dividing it with 255.0) so the model can converge
+    # faster.
     X_train = load_data(os.path.join(data_folder, 'train-images.gz'), False) / 255.0
     X_test = load_data(os.path.join(data_folder, 'test-images.gz'), False) / 255.0
     y_train = load_data(os.path.join(data_folder, 'train-labels.gz'), True).reshape(-1)
     y_test = load_data(os.path.join(data_folder, 'test-labels.gz'), True).reshape(-1)
-    print(X_train.shape, y_train.shape, X_test.shape, y_test.shape, sep = '\n')
+    print(X_train.shape, y_train.shape, X_test.shape, y_test.shape, sep='\n')
 
     # get hold of the current run
     run = Run.get_context()
@@ -31,20 +30,31 @@ def train(data_folder, regularization, output):
     clf.fit(X_train, y_train)
 
     print('Predict the test set')
-    y_hat = clf.predict(X_test)
+    y_pred = clf.predict(X_test)
 
     # calculate accuracy on the prediction
-    acc = np.average(y_hat == y_test)
-    print('Accuracy is', acc)
+    acc = metrics.accuracy_score(y_test, y_pred)
+
+    prec = metrics.precision_score(y_test, y_pred, average='micro')
+
+    rec = metrics.recall_score(y_test, y_pred, average='micro')
+
+    f1 = metrics.f1_score(y_test, y_pred, average='micro')
+
+    print(metrics.classification_report(y_test, y_pred))
 
     run.log('regularization rate', np.float(regularization))
     run.log('accuracy', np.float(acc))
+    run.log('precision', np.float(prec))
+    run.log('recall', np.float(rec))
+    run.log('f1', np.float(f1))
 
     os.makedirs('../outputs', exist_ok=True)
     # note file saved in the outputs folder is automatically uploaded into experiment record
     joblib.dump(value=clf, filename=output)
 
     return clf
+
 
 if __name__ == '__main__':
     args = parser.parse_args()
